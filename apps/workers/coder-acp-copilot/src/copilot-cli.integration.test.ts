@@ -63,6 +63,7 @@ describe("coder-acp-copilot integration", async () => {
 
   const docker = new Docker();
   let workerResult: { result: TestResult; exitCode: number } | undefined;
+  let modelSelectionResult: { result: TestResult; exitCode: number } | undefined;
 
   beforeAll(async () => {
     if (!dockerAvailable) return;
@@ -93,7 +94,25 @@ describe("coder-acp-copilot integration", async () => {
     }
     workerResult = await runTestWorker(docker, { image: IMAGE_TAG, workingDir: WORKING_DIR, env });
     log(`exit=${workerResult.exitCode} lastStep=${workerResult.result.lastStep}`);
-  }, 600_000); // 10 min for Docker build
+
+    // Keep the real coding prompt on the session default. Exercise model
+    // switching in a separate short session so server-side model ordering
+    // cannot make the coding assertion flaky.
+    if (hasCredentials) {
+      modelSelectionResult = await runTestWorker(docker, {
+        image: IMAGE_TAG,
+        workingDir: WORKING_DIR,
+        env: [
+          `GITHUB_TOKEN=${GITHUB_TOKEN}`,
+          "TEST_PROMPT=Reply with OK.",
+          "TEST_SELECT_NON_DEFAULT_MODEL=true",
+        ],
+      });
+      log(
+        `model selection exit=${modelSelectionResult.exitCode} lastStep=${modelSelectionResult.result.lastStep}`
+      );
+    }
+  }, 900_000); // 15 min for Docker build plus two authenticated sessions
 
   afterAll(async () => {
     // Image kept for faster re-runs. Use `docker system prune` to clean up.
@@ -144,16 +163,21 @@ describe("coder-acp-copilot integration", async () => {
   );
 
   // -----------------------------------------------------------------------
-  // Model selection test: ACP set_model changes to an advertised non-default model
+  // Model selection test: ACP changes to an advertised non-default model
   // -----------------------------------------------------------------------
 
   it.skipIf(!canRun)(
-    "selects an advertised non-default model via ACP set_model",
+    "selects an advertised non-default model via ACP",
     { timeout: 300_000 },
     async () => {
-      const { result } = workerResult!;
+      const { result } = modelSelectionResult!;
       const first = result.prompts[0];
 
+      expect(
+        first.error,
+        `Model selection probe failed: ${first?.error}`
+      ).toBeUndefined();
+      expect(first.success).toBe(true);
       log(`confirmedModel=${first.confirmedModel}`);
 
       if (first.confirmedModel === undefined) {
@@ -164,8 +188,10 @@ describe("coder-acp-copilot integration", async () => {
               "model selector did not choose a model from the advertised model options"
             )
         );
-        const selectionFailed = result.logs?.some((line) =>
-          line.includes("session/set_model failed")
+        const selectionFailed = result.logs?.some(
+          (line) =>
+            line.includes("session/set_model failed") ||
+            line.includes("session/set_config_option failed for model")
         );
 
         expect(
@@ -178,12 +204,8 @@ describe("coder-acp-copilot integration", async () => {
         ).toBe(true);
         log("SKIPPED (server did not advertise an alternate selectable model)");
       } else {
-        expect(
-          result.logs?.some((line) =>
-            line.includes(`Model set to "${first.confirmedModel}" via session/set_model`)
-          ),
-          `Expected session/set_model success log for "${first.confirmedModel}"`,
-        ).toBe(true);
+        expect(first.initialModel, "Expected the session's initial model").toBeTruthy();
+        expect(first.confirmedModel).not.toBe(first.initialModel);
       }
     },
   );
