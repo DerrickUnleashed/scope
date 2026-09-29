@@ -6,6 +6,8 @@ import {
   runACPSession,
   selectModel,
   resolveRequestedModel,
+  getCurrentModelId,
+  hasModelSelectionCapability,
   selectFirstAvailableNonDefaultModel,
   selectReasoningEffort,
   selectPermissionMode,
@@ -358,6 +360,62 @@ describe("resolveRequestedModel", () => {
 
     expect(resolveRequestedModel(selector, session)).toBe("selected-model");
     expect(selector).toHaveBeenCalledWith(session);
+  });
+});
+
+describe("model selection session metadata", () => {
+  function makeSession(
+    overrides?: Partial<acp.NewSessionResponse>
+  ): acp.NewSessionResponse {
+    return {
+      sessionId: "session-1",
+      ...overrides,
+    } as acp.NewSessionResponse;
+  }
+
+  it("returns the current model advertised by the session", () => {
+    const session = makeSession({
+      models: {
+        currentModelId: "default-model",
+        availableModels: [
+          { modelId: "default-model", name: "Default Model" },
+        ],
+      },
+    });
+
+    expect(getCurrentModelId(session)).toBe("default-model");
+  });
+
+  it("detects models-field capability", () => {
+    const session = makeSession({
+      models: {
+        currentModelId: "default-model",
+        availableModels: [],
+      },
+    });
+
+    expect(hasModelSelectionCapability(session)).toBe(true);
+  });
+
+  it("detects model config-option capability", () => {
+    const session = makeSession({
+      configOptions: [
+        {
+          id: "model-picker",
+          category: "model",
+          name: "Model",
+          currentValue: "default-model",
+          options: [],
+          type: "select",
+        },
+      ],
+    });
+
+    expect(hasModelSelectionCapability(session)).toBe(true);
+  });
+
+  it("returns false when no model selection mechanism is advertised", () => {
+    expect(hasModelSelectionCapability(makeSession())).toBe(false);
   });
 });
 

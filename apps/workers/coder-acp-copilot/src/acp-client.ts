@@ -127,7 +127,10 @@ export interface ACPClientOptions {
   mcpServers?: McpServerConfig[];
   /** Session timeout in milliseconds (default: 30 min). Set to 0 to disable. */
   sessionTimeoutMs?: number;
-  /** Model to select after the session is created, or a selector resolved from the new session response. */
+  /**
+   * Model to select after the session is created, or a selector resolved from
+   * the new session response for session-scoped policies and integration probes.
+   */
   model?: string | ACPModelSelector;
   /** Reasoning effort level to apply via ACP config option (e.g. "low", "medium", "high"). */
   reasoningEffort?: string;
@@ -138,10 +141,16 @@ export interface ACPClientOptions {
 export interface ACPSessionResult {
   response: string;
   stopReason: string;
+  /** Model active when the ACP session was created, when advertised by the agent. */
+  initialModel?: string;
   /** Model that was successfully activated via ACP set_model, or undefined if model selection was not requested or did not succeed. */
   confirmedModel?: string;
 }
 
+/**
+ * Select a model after ACP session creation, when session-scoped model
+ * capabilities are available.
+ */
 export type ACPModelSelector = (
   sessionResult: acp.NewSessionResponse
 ) => string | undefined;
@@ -151,6 +160,23 @@ export function resolveRequestedModel(
   sessionResult: acp.NewSessionResponse
 ): string | undefined {
   return typeof model === "function" ? model(sessionResult) : model;
+}
+
+export function getCurrentModelId(
+  sessionResult: acp.NewSessionResponse
+): string | undefined {
+  return sessionResult.models?.currentModelId;
+}
+
+export function hasModelSelectionCapability(
+  sessionResult: acp.NewSessionResponse
+): boolean {
+  return (
+    sessionResult.models != null ||
+    sessionResult.configOptions?.some(
+      (option: acp.SessionConfigOption) => option.category === "model"
+    ) === true
+  );
 }
 
 /**
@@ -344,7 +370,9 @@ export async function selectModel(
   }
 
   // Neither mechanism available — warn and continue
-  onLog(`Warning: agent does not advertise model selection capability (no models field or model config option); model "${model}" may not be honoured`);
+  if (!hasModelSelectionCapability(sessionResult)) {
+    onLog(`Warning: agent does not advertise model selection capability (no models field or model config option); model "${model}" may not be honoured`);
+  }
   return undefined;
 }
 
@@ -603,6 +631,7 @@ export async function runACPSession(
 
     // Select model if requested. A selector is resolved only after newSession
     // because the current and available models are session-scoped.
+    const initialModel = getCurrentModelId(sessionResult);
     let confirmedModel: string | undefined;
     const requestedModel = resolveRequestedModel(model, sessionResult);
     if (requestedModel) {
@@ -613,12 +642,7 @@ export async function runACPSession(
         onLog
       );
     } else if (typeof model === "function") {
-      const hasModelCapability =
-        sessionResult.models !== undefined ||
-        sessionResult.configOptions?.some(
-          (option: acp.SessionConfigOption) => option.category === "model"
-        ) === true;
-      if (hasModelCapability) {
+      if (hasModelSelectionCapability(sessionResult)) {
         onLog(
           "Warning: model selector did not choose a model from the advertised model options"
         );
@@ -658,6 +682,7 @@ export async function runACPSession(
     return {
       response: clientHandler.getResponse(),
       stopReason: promptResult.stopReason,
+      initialModel,
       confirmedModel,
     };
     };
