@@ -13,13 +13,20 @@
  *
  * Env vars:
  *   GITHUB_TOKEN  — GitHub PAT for Copilot auth (required to run prompts)
- *   TEST_PROMPT / TEST_PROMPT_2 / TEST_MODEL — see test-utils/harness
+ *   TEST_PROMPT / TEST_PROMPT_2 — see test-utils/harness
  */
 import { runTestHarness } from "test-utils/harness";
-import { runACPSession } from "./acp-client.js";
+import {
+  runACPSession,
+  selectFirstAvailableNonDefaultModel,
+} from "./acp-client.js";
 
 await runTestHarness({
-  runSession: runACPSession,
+  runSession: (prompt, options) =>
+    runACPSession(prompt, {
+      ...options,
+      model: selectFirstAvailableNonDefaultModel,
+    }),
   command: "copilot",
   args: ["--acp", "--yolo"],
   getCredentialEnv: () => {

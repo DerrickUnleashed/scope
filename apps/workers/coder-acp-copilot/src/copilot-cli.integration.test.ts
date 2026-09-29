@@ -89,7 +89,6 @@ describe("coder-acp-copilot integration", async () => {
       env.push(
         `GITHUB_TOKEN=${GITHUB_TOKEN}`,
         "TEST_PROMPT=Generate a Hello World REST API in Python using Flask.",
-        "TEST_MODEL=claude-opus-4.6",
       );
     }
     workerResult = await runTestWorker(docker, { image: IMAGE_TAG, workingDir: WORKING_DIR, env });
@@ -145,11 +144,11 @@ describe("coder-acp-copilot integration", async () => {
   );
 
   // -----------------------------------------------------------------------
-  // Model selection test: ACP set_model actually changes the active model
+  // Model selection test: ACP set_model changes to an advertised non-default model
   // -----------------------------------------------------------------------
 
   it.skipIf(!canRun)(
-    "honours the requested model via ACP set_model",
+    "selects an advertised non-default model via ACP set_model",
     { timeout: 300_000 },
     async () => {
       const { result } = workerResult!;
@@ -157,24 +156,34 @@ describe("coder-acp-copilot integration", async () => {
 
       log(`confirmedModel=${first.confirmedModel}`);
 
-      // KNOWN LIMITATION: model selection depends on server-side capability
-      // advertisement. The ACP newSession response must include either a `models`
-      // field or a `configOptions` entry with category "model". If the server
-      // stops advertising these (which can change independently of CLI version),
-      // selectModel() returns undefined and we can only verify the graceful
-      // fallback path rather than asserting a confirmed model.
       if (first.confirmedModel === undefined) {
-        // Server did not advertise model selection — verify logs show the warning
-        const hasWarning = result.logs?.some((l) =>
-          l.includes("does not advertise model selection capability")
+        const selectionUnavailable = result.logs?.some(
+          (line) =>
+            line.includes("does not advertise model selection capability") ||
+            line.includes(
+              "model selector did not choose a model from the advertised model options"
+            )
         );
+        const selectionFailed = result.logs?.some((line) =>
+          line.includes("session/set_model failed")
+        );
+
         expect(
-          hasWarning,
-          "selectModel() returned undefined but expected a capability warning in logs",
+          selectionFailed,
+          "Dynamic model selection reached session/set_model but failed",
+        ).toBe(false);
+        expect(
+          selectionUnavailable,
+          "Expected an explicit warning when no alternate advertised model can be selected",
         ).toBe(true);
-        log("SKIPPED (server did not advertise model selection capability)");
+        log("SKIPPED (server did not advertise an alternate selectable model)");
       } else {
-        expect(first.confirmedModel).toBe("claude-opus-4.6");
+        expect(
+          result.logs?.some((line) =>
+            line.includes(`Model set to "${first.confirmedModel}" via session/set_model`)
+          ),
+          `Expected session/set_model success log for "${first.confirmedModel}"`,
+        ).toBe(true);
       }
     },
   );

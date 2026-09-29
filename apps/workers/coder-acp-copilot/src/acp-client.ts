@@ -127,8 +127,8 @@ export interface ACPClientOptions {
   mcpServers?: McpServerConfig[];
   /** Session timeout in milliseconds (default: 30 min). Set to 0 to disable. */
   sessionTimeoutMs?: number;
-  /** Model to select after the session is created (e.g. "gpt-5.4"). */
-  model?: string;
+  /** Model to select after the session is created, or a selector resolved from the new session response. */
+  model?: string | ACPModelSelector;
   /** Reasoning effort level to apply via ACP config option (e.g. "low", "medium", "high"). */
   reasoningEffort?: string;
   /** Use shell to spawn the process (required on Windows for .cmd shim resolution). */
@@ -140,6 +140,36 @@ export interface ACPSessionResult {
   stopReason: string;
   /** Model that was successfully activated via ACP set_model, or undefined if model selection was not requested or did not succeed. */
   confirmedModel?: string;
+}
+
+export type ACPModelSelector = (
+  sessionResult: acp.NewSessionResponse
+) => string | undefined;
+
+export function resolveRequestedModel(
+  model: string | ACPModelSelector | undefined,
+  sessionResult: acp.NewSessionResponse
+): string | undefined {
+  return typeof model === "function" ? model(sessionResult) : model;
+}
+
+/**
+ * Choose the first advertised model that differs from the session default.
+ *
+ * Intended for integration coverage that must exercise model switching without
+ * depending on a server-controlled model id.
+ */
+export function selectFirstAvailableNonDefaultModel(
+  sessionResult: acp.NewSessionResponse
+): string | undefined {
+  const models = sessionResult.models;
+  if (!models) {
+    return undefined;
+  }
+
+  return models.availableModels.find(
+    (candidate) => candidate.modelId !== models.currentModelId
+  )?.modelId;
 }
 
 /**
@@ -571,10 +601,32 @@ export async function runACPSession(
       onLog(`Session config options: ${sessionResult.configOptions.map((o: acp.SessionConfigOption) => `${o.id}${o.category ? ` (${o.category})` : ""}`).join(", ")}`);
     }
 
-    // Select model if requested
+    // Select model if requested. A selector is resolved only after newSession
+    // because the current and available models are session-scoped.
     let confirmedModel: string | undefined;
-    if (model) {
-      confirmedModel = await selectModel(connection, sessionResult, model, onLog);
+    const requestedModel = resolveRequestedModel(model, sessionResult);
+    if (requestedModel) {
+      confirmedModel = await selectModel(
+        connection,
+        sessionResult,
+        requestedModel,
+        onLog
+      );
+    } else if (typeof model === "function") {
+      const hasModelCapability =
+        sessionResult.models !== undefined ||
+        sessionResult.configOptions?.some(
+          (option: acp.SessionConfigOption) => option.category === "model"
+        ) === true;
+      if (hasModelCapability) {
+        onLog(
+          "Warning: model selector did not choose a model from the advertised model options"
+        );
+      } else {
+        onLog(
+          "Warning: agent does not advertise model selection capability (no models field or model config option)"
+        );
+      }
     }
 
     // Set reasoning effort if requested

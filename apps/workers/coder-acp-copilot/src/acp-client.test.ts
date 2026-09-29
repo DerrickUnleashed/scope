@@ -2,7 +2,18 @@
 // Licensed under the MIT License.
 
 import { describe, it, expect, vi } from "vitest";
-import { runACPSession, selectModel, selectReasoningEffort, selectPermissionMode, formatModeError, formatToolArgs, formatToolContent, AUTOPILOT_MODE_ID } from "./acp-client.js";
+import {
+  runACPSession,
+  selectModel,
+  resolveRequestedModel,
+  selectFirstAvailableNonDefaultModel,
+  selectReasoningEffort,
+  selectPermissionMode,
+  formatModeError,
+  formatToolArgs,
+  formatToolContent,
+  AUTOPILOT_MODE_ID,
+} from "./acp-client.js";
 import type * as acp from "@agentclientprotocol/sdk";
 import os from "node:os";
 
@@ -285,6 +296,68 @@ describe("selectModel", () => {
 
     await expect(selectModel(connection, session, "gpt-5.4", (msg) => logs.push(msg))).resolves.toBeUndefined();
     expect(logs.some((l) => l.includes('session/set_model failed'))).toBe(true);
+  });
+});
+
+describe("selectFirstAvailableNonDefaultModel", () => {
+  function makeSession(
+    overrides?: Partial<acp.NewSessionResponse>
+  ): acp.NewSessionResponse {
+    return {
+      sessionId: "session-1",
+      ...overrides,
+    } as acp.NewSessionResponse;
+  }
+
+  it("selects the first advertised model different from the current model", () => {
+    const session = makeSession({
+      models: {
+        currentModelId: "default-model",
+        availableModels: [
+          { modelId: "default-model", name: "Default Model" },
+          { modelId: "alternate-model", name: "Alternate Model" },
+          { modelId: "another-model", name: "Another Model" },
+        ],
+      },
+    });
+
+    expect(selectFirstAvailableNonDefaultModel(session)).toBe(
+      "alternate-model"
+    );
+  });
+
+  it("returns undefined when the session does not advertise models", () => {
+    expect(selectFirstAvailableNonDefaultModel(makeSession())).toBeUndefined();
+  });
+
+  it("returns undefined when only the current model is available", () => {
+    const session = makeSession({
+      models: {
+        currentModelId: "default-model",
+        availableModels: [
+          { modelId: "default-model", name: "Default Model" },
+        ],
+      },
+    });
+
+    expect(selectFirstAvailableNonDefaultModel(session)).toBeUndefined();
+  });
+});
+
+describe("resolveRequestedModel", () => {
+  const session = {
+    sessionId: "session-1",
+  } as acp.NewSessionResponse;
+
+  it("preserves a fixed model id", () => {
+    expect(resolveRequestedModel("fixed-model", session)).toBe("fixed-model");
+  });
+
+  it("resolves a selector with the new session response", () => {
+    const selector = vi.fn().mockReturnValue("selected-model");
+
+    expect(resolveRequestedModel(selector, session)).toBe("selected-model");
+    expect(selector).toHaveBeenCalledWith(session);
   });
 });
 
