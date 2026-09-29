@@ -13,7 +13,7 @@ export interface PromptResult {
   error?: string;
   /** Model active when the ACP session was created, when advertised by the agent. */
   initialModel?: string;
-  /** Model confirmed active by ACP set_model, or undefined if not requested/unavailable. */
+  /** Model confirmed active through ACP, or undefined if not requested/unavailable. */
   confirmedModel?: string;
 }
 

@@ -344,6 +344,103 @@ describe("selectFirstAvailableNonDefaultModel", () => {
 
     expect(selectFirstAvailableNonDefaultModel(session)).toBeUndefined();
   });
+
+  it("selects a non-default model from a model config option", () => {
+    const session = makeSession({
+      configOptions: [
+        {
+          id: "model-picker",
+          category: "model",
+          name: "Model",
+          currentValue: "default-model",
+          options: [
+            { value: "default-model", name: "Default Model" },
+            { value: "alternate-model", name: "Alternate Model" },
+          ],
+          type: "select",
+        },
+      ],
+    });
+
+    expect(selectFirstAvailableNonDefaultModel(session)).toBe(
+      "alternate-model"
+    );
+  });
+
+  it("selects a non-default model from a grouped model config option", () => {
+    const session = makeSession({
+      configOptions: [
+        {
+          id: "model-picker",
+          category: "model",
+          name: "Model",
+          currentValue: "default-model",
+          options: [
+            {
+              group: "recommended",
+              name: "Recommended",
+              options: [
+                { value: "default-model", name: "Default Model" },
+                { value: "alternate-model", name: "Alternate Model" },
+              ],
+            },
+          ],
+          type: "select",
+        },
+      ],
+    });
+
+    expect(selectFirstAvailableNonDefaultModel(session)).toBe(
+      "alternate-model"
+    );
+  });
+
+  it("returns undefined when a model config option only lists the current model", () => {
+    const session = makeSession({
+      configOptions: [
+        {
+          id: "model-picker",
+          category: "model",
+          name: "Model",
+          currentValue: "default-model",
+          options: [
+            { value: "default-model", name: "Default Model" },
+          ],
+          type: "select",
+        },
+      ],
+    });
+
+    expect(selectFirstAvailableNonDefaultModel(session)).toBeUndefined();
+  });
+
+  it("prefers the models field when both representations are advertised", () => {
+    const session = makeSession({
+      models: {
+        currentModelId: "models-default",
+        availableModels: [
+          { modelId: "models-default", name: "Models Default" },
+          { modelId: "models-alternate", name: "Models Alternate" },
+        ],
+      },
+      configOptions: [
+        {
+          id: "model-picker",
+          category: "model",
+          name: "Model",
+          currentValue: "config-default",
+          options: [
+            { value: "config-alternate", name: "Config Alternate" },
+          ],
+          type: "select",
+        },
+      ],
+    });
+
+    expect(selectFirstAvailableNonDefaultModel(session)).toBe(
+      "models-alternate"
+    );
+  });
 });
 
 describe("resolveRequestedModel", () => {
@@ -381,6 +478,23 @@ describe("model selection session metadata", () => {
           { modelId: "default-model", name: "Default Model" },
         ],
       },
+    });
+
+    expect(getCurrentModelId(session)).toBe("default-model");
+  });
+
+  it("returns the current model from a model config option", () => {
+    const session = makeSession({
+      configOptions: [
+        {
+          id: "model-picker",
+          category: "model",
+          name: "Model",
+          currentValue: "default-model",
+          options: [],
+          type: "select",
+        },
+      ],
     });
 
     expect(getCurrentModelId(session)).toBe("default-model");

@@ -196,7 +196,7 @@ describe("coder-acp-copilot integration", async () => {
 
         expect(
           selectionFailed,
-          "Dynamic model selection reached session/set_model but failed",
+          "Dynamic model selection reached an ACP selection method but failed",
         ).toBe(false);
         expect(
           selectionUnavailable,

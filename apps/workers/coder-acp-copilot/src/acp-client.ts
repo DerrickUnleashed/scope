@@ -143,7 +143,7 @@ export interface ACPSessionResult {
   stopReason: string;
   /** Model active when the ACP session was created, when advertised by the agent. */
   initialModel?: string;
-  /** Model that was successfully activated via ACP set_model, or undefined if model selection was not requested or did not succeed. */
+  /** Model successfully activated through ACP, or undefined if selection was not requested or did not succeed. */
   confirmedModel?: string;
 }
 
@@ -165,7 +165,28 @@ export function resolveRequestedModel(
 export function getCurrentModelId(
   sessionResult: acp.NewSessionResponse
 ): string | undefined {
-  return sessionResult.models?.currentModelId;
+  return (
+    sessionResult.models?.currentModelId ??
+    getModelConfigOption(sessionResult)?.currentValue
+  );
+}
+
+function getModelConfigOption(
+  sessionResult: acp.NewSessionResponse
+): acp.SessionConfigOption | undefined {
+  return sessionResult.configOptions?.find(
+    (option: acp.SessionConfigOption) => option.category === "model"
+  );
+}
+
+function getConfigOptionValues(
+  configOption: acp.SessionConfigOption
+): string[] {
+  return configOption.options.flatMap((option) =>
+    "value" in option
+      ? [option.value]
+      : option.options.map((groupedOption) => groupedOption.value)
+  );
 }
 
 export function hasModelSelectionCapability(
@@ -173,9 +194,7 @@ export function hasModelSelectionCapability(
 ): boolean {
   return (
     sessionResult.models != null ||
-    sessionResult.configOptions?.some(
-      (option: acp.SessionConfigOption) => option.category === "model"
-    ) === true
+    getModelConfigOption(sessionResult) !== undefined
   );
 }
 
@@ -189,13 +208,20 @@ export function selectFirstAvailableNonDefaultModel(
   sessionResult: acp.NewSessionResponse
 ): string | undefined {
   const models = sessionResult.models;
-  if (!models) {
+  if (models) {
+    return models.availableModels.find(
+      (candidate) => candidate.modelId !== models.currentModelId
+    )?.modelId;
+  }
+
+  const modelConfigOption = getModelConfigOption(sessionResult);
+  if (!modelConfigOption) {
     return undefined;
   }
 
-  return models.availableModels.find(
-    (candidate) => candidate.modelId !== models.currentModelId
-  )?.modelId;
+  return getConfigOptionValues(modelConfigOption).find(
+    (value) => value !== modelConfigOption.currentValue
+  );
 }
 
 /**
@@ -349,23 +375,19 @@ export async function selectModel(
   }
 
   // Path 2: stable session/set_config_option with category "model"
-  if (sessionResult.configOptions) {
-    const modelConfigOption = sessionResult.configOptions.find(
-      (o) => o.category === "model"
-    );
-    if (modelConfigOption) {
-      try {
-        await connection.setSessionConfigOption({
-          sessionId: sessionResult.sessionId,
-          configId: modelConfigOption.id,
-          value: model,
-        });
-        onLog(`Model set to "${model}" via session/set_config_option (configId: ${modelConfigOption.id})`);
-        return model;
-      } catch (err) {
-        onLog(`Warning: session/set_config_option failed for model "${model}": ${err instanceof Error ? err.message : String(err)}`);
-        return undefined;
-      }
+  const modelConfigOption = getModelConfigOption(sessionResult);
+  if (modelConfigOption) {
+    try {
+      await connection.setSessionConfigOption({
+        sessionId: sessionResult.sessionId,
+        configId: modelConfigOption.id,
+        value: model,
+      });
+      onLog(`Model set to "${model}" via session/set_config_option (configId: ${modelConfigOption.id})`);
+      return model;
+    } catch (err) {
+      onLog(`Warning: session/set_config_option failed for model "${model}": ${err instanceof Error ? err.message : String(err)}`);
+      return undefined;
     }
   }
 
