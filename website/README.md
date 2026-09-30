@@ -267,10 +267,11 @@ Recommended content follow-ups:
 - Walk the first-run guide against a current deployment, then add
   maintained screenshots. Its claims about preseeded catalogs, model
   availability, and UI labels should not be assumed for every deployment.
-- Explain release-repository access during CLI onboarding. The legacy
-  `growth-ecosystems/scope-doc` reference is still used by the installer
-  and publishing workflow, so changing it just because the documentation
-  moved would be incorrect. A release migration is a separate change.
+- CLI releases now come from the public `microsoft/scope` repository.
+  Onboarding uses the canonical root installer; the website installer
+  is a compatibility entry point that downloads and runs that same
+  script. Public installation needs Node.js and curl, not GitHub
+  authentication. Deployment/API access requirements remain separate.
 - Add a real, reproducible sample-results walkthrough when an approved
   dataset is available. Keep real evidence separate from the example.
 

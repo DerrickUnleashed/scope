@@ -8,7 +8,7 @@ import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { Command } from "commander";
 import { configureHelp, generateOutputFormatsHelp, generateEnvVarsHelp } from "./utils/helpFormatter.js";
-import { OUTPUT_FORMATS, ENV_VARS, applyApiPortFallback, getCliName } from "./utils/shared.js";
+import { OUTPUT_FORMATS, ENV_VARS, getCliName } from "./utils/shared.js";
 import { registerRunCommands } from "./commands/run.js";
 import { registerCriteriaCommands } from "./commands/criteria.js";
 import { registerPromptFeatureCommands } from "./commands/prompt-feature.js";
@@ -33,8 +33,8 @@ const CLI_VERSION = process.env.SCOPE_CLI_VERSION ?? "0.1.0-dev";
 /**
  * Walk up from `start` looking for a `.env` file, stopping at the first hit
  * or at the filesystem root. Lets `pnpm cli ...` (which sets cwd to apps/cli)
- * still pick up the workspace-root `.env` produced by `worktree-env`, where
- * variables like SCOPE_API_PORT actually live.
+ * still pick up explicit configuration such as SCOPE_API_URL from the
+ * workspace-root `.env`.
  */
 function findEnvFile(start: string): string | undefined {
   let dir = resolve(start);
@@ -49,13 +49,6 @@ function findEnvFile(start: string): string | undefined {
 
 const envPath = findEnvFile(process.cwd());
 dotenv.config(envPath ? { path: envPath } : undefined);
-
-// If SCOPE_API_URL is not already set but SCOPE_API_PORT is (e.g. when the API
-// is running locally on a non-default port via docker-compose), derive a
-// default SCOPE_API_URL of http://localhost:$SCOPE_API_PORT. Must run before
-// any command module captures `process.env.SCOPE_API_URL` as its option
-// default.
-applyApiPortFallback();
 
 export const program = new Command();
 

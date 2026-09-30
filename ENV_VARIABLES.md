@@ -5,10 +5,14 @@ The sophisticated criteria system can be configured via environment variables in
 ## CLI Configuration
 
 ### SCOPE_API_URL
-**Default:** `http://localhost:3100`
+**Default:** None
 **Type:** URL string
 
-Base URL of the Scope API used by all CLI commands. Override this to point the CLI at a remote or Docker-hosted API instance.
+Base URL of the Scope API used by CLI API operations. Set this explicitly or pass
+`-u/--url` to a command (`--api-url` for MCP server create/update). Both bundled
+and source-mode CLIs fail before making an API request when no URL is configured.
+Help, version, and CLI updates do not require a Scope API URL. The CLI no longer
+derives a localhost URL from `SCOPE_API_PORT` or uses `SCOPE_DEFAULT_API_URL`.
 
 ## Docker Development
 

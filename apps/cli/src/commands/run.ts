@@ -64,7 +64,7 @@ run
   .option("--profile-variations-file <path>", "Path to JSON file containing profile variation entries")
   .option("--agents-md <text|@file>", "AGENTS.md content delivered to the workspace (prefix with @ to read from a file)")
   .option("--gates <jsonOrFile>", "GateConfig[] JSON or path/@path to a JSON file for gated runs")
-  .option("-u, --url <url>", "API base URL", process.env.SCOPE_API_URL || "http://localhost:3100")
+  .option("-u, --url <url>", "API base URL", getDefaultApiUrl())
   .option("--project <id>", "Project ID for scoped operations (overrides SCOPE_PROJECT and the saved selection)")
   .option("--no-stream", "Don't stream logs, just submit")
   .action(async (options, command) => {
