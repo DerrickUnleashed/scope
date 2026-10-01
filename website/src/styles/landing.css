@@ -53,6 +53,8 @@ body:has(.scope-home) .content-panel:has([data-home-title-placeholder]) { displa
 body:has(.scope-home) .content-panel { border: 0; padding-top: 0; }
 body:has(.scope-home) .sl-container { max-width: 78rem; }
 body:has(.scope-home) header.header { background: color-mix(in srgb, var(--scope-bg) 94%, transparent); backdrop-filter: blur(14px); }
+/* The landing has no edit link or pagination, so Starlight's per-page footer is empty. */
+.sl-markdown-content:has(> .scope-home) + footer { display: none; }
 .scope-home { color: var(--scope-text); font-family: var(--sl-font); line-height: 1.6; }
 .scope-home * { box-sizing: border-box; }
 .scope-home :is(h1,h2,h3,p) { margin: 0; }
@@ -252,7 +254,6 @@ scope-showreel { display: block; max-width: 60rem; margin: 3rem auto 0; }
 .scope-cta h2 { font-size: clamp(2rem, 4vw, 3.25rem); letter-spacing: -0.045em; font-weight: 600; line-height: 1.15; margin: 1rem 0; }
 .scope-cta > p:not(.scope-eyebrow) { color: var(--scope-muted); font-size: 0.9rem; margin-bottom: 1.5rem; }
 .scope-access-note { display: block; font-size: 0.72rem; color: var(--scope-muted); margin: 1rem auto 0; max-width: 50ch; }
-.scope-home-footer { display: flex; flex-wrap: wrap; gap: 1rem; justify-content: space-between; padding: 2rem 0 0; font-size: 0.75rem; font-weight: 600; }.scope-home-footer a { color: var(--scope-muted); }.scope-footer-muted { color: var(--scope-muted); font-weight: 400; }
 
 @media (max-width: 65rem) {
 	.flow-step-name { display: none; }

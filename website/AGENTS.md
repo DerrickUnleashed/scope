@@ -34,6 +34,12 @@ A static documentation site published to GitHub Pages.
   `TalkCard`, and `CommunityTeaser` (the landing-page section), all
   reading those collections
   - Sidebar order is defined in `astro.config.mjs`, not by directory order
+- `src/components/SiteFooter.astro` — the site-wide footer (brand,
+  link columns, Microsoft legal links). It is injected after `<main>`
+  by the `TwoColumnContent` override in
+  `src/components/TwoColumnContent.astro`, so it is a page-level
+  `contentinfo` landmark and stays out of the Pagefind index. Keep its
+  internal links pointing at pages that exist in the sidebar.
 - `src/openapi/scope-openapi.json` — committed artifact generated from
   the Scope API's OpenAPI registry; drives the auto-generated REST
   API reference

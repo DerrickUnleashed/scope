@@ -16,7 +16,7 @@ The product and this documentation site live in
 ├── public/                          # static assets
 ├── src/
 │   ├── assets/
-│   ├── components/                  # Astro landing, interactive example, header, page title
+│   ├── components/                  # Astro landing, interactive example, header, page title, site footer
 │   │   └── community/               # article/talk lists + landing teaser
 │   ├── content/
 │   │   ├── docs/                    # all user-facing pages (.md / .mdx)

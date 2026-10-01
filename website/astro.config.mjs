@@ -78,6 +78,7 @@ export default defineConfig({
 				SiteTitle: './src/components/SiteTitle.astro',
 				Header: './src/components/Header.astro',
 				PageTitle: './src/components/PageTitle.astro',
+				TwoColumnContent: './src/components/TwoColumnContent.astro',
 			},
 			social: [{ icon: 'github', label: 'GitHub', href: 'https://github.com/microsoft/scope' }],
 			plugins: [
